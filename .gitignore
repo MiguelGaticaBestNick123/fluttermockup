@@ -1,0 +1,19 @@
+# Archivos de Visual Studio y VS Code
+.vs/
+.vscode/
+
+# Archivos generados por Flutter y Dart
+build/
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Archivos de configuración del proyecto (dependiendo del IDE)
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Otros
+pubspec.lock
