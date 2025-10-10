@@ -1,4 +1,3 @@
-// lib/pages/login_page.dart
 import 'package:flutter/material.dart';
 
 class LoginPage extends StatefulWidget {
@@ -14,21 +13,37 @@ class _LoginPageState extends State<LoginPage> {
     final user = _userController.text.trim();
     final pass = _passController.text.trim();
 
+    // 1. Validar que los campos no estén vacíos
     if (user.isEmpty || pass.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text('Error'),
-          content: Text('Ambos campos son obligatorios.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'))
-          ],
-        ),
-      );
+      _showErrorDialog('Ambos campos son obligatorios.');
       return;
     }
 
-    Navigator.pushReplacementNamed(context, '/home');
+    // 2. Validar las credenciales correctas
+    if (user == 'duoc2025' && pass == 'duoc2025') {
+      // Si son correctas, navegar a la página de productos
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
+      // Si son incorrectas, mostrar alerta
+      _showErrorDialog('Los datos son incorrectos.');
+    }
+  }
+
+  // Función auxiliar para mostrar el diálogo de error
+  void _showErrorDialog(String content) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Error'),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -64,12 +79,6 @@ class _LoginPageState extends State<LoginPage> {
                 child: Text('Ingresar'),
               ),
             ),
-            SizedBox(height: 8),
-            Text(
-              'Este es un mockup: cualquier usuario/password (no vacíos) permite avanzar.',
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-              textAlign: TextAlign.center,
-            )
           ],
         ),
       ),
