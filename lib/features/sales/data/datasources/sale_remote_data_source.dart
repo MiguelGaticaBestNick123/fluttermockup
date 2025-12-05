@@ -1,29 +1,37 @@
-import 'package:dio/dio.dart';
 import '../../../../models/sale.dart';
-import '../../../../services/api_service.dart';
+import '../../../../services/supabase_service.dart';
 
 abstract class SaleRemoteDataSource {
   Future<Sale> createSale(Sale sale);
+  Future<List<Sale>> getSales();
 }
 
 class SaleRemoteDataSourceImpl implements SaleRemoteDataSource {
-  final ApiService apiService;
+  final SupabaseService supabaseService;
 
-  SaleRemoteDataSourceImpl({required this.apiService});
+  SaleRemoteDataSourceImpl({required this.supabaseService});
 
   @override
   Future<Sale> createSale(Sale sale) async {
-    final data = {
-      "client_id": sale.clientId,
-      "items": sale.items.map((i) => i.toMap()).toList(),
-    };
-    
-    final response = await apiService.dio.post('/api/sales', data: data);
-    
-    if (response.statusCode == 201) {
-      return Sale.fromJson(response.data);
-    } else {
-      throw Exception('Failed to create sale');
-    }
+    final itemsData = sale.items.map((i) => {
+      'product_id': i.productId,
+      'quantity': i.quantity,
+      'price': i.price,
+    }).toList();
+
+    final data = await supabaseService.createSale(
+      sale.clientId!, // Assuming clientId is not null for now
+      itemsData,
+      sale.total,
+    );
+
+    // But let's try to map it.
+    return Sale.fromJson(data);
+  }
+
+  @override
+  Future<List<Sale>> getSales() async {
+    final data = await supabaseService.getSales();
+    return data.map((e) => Sale.fromJson(e)).toList();
   }
 }

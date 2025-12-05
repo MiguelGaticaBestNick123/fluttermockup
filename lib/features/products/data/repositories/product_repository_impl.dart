@@ -26,8 +26,26 @@ class ProductRepositoryImpl implements ProductRepository {
 
       // 3. If local is empty or forcing update, fetch from remote
       print('ProductRepository: Fetching from remote (forceUpdate: $forceUpdate)...');
-      final remoteProducts = await remoteDataSource.getProducts();
+      var remoteProducts = await remoteDataSource.getProducts();
       
+      // AUTO-MIGRATION: If remote is empty but we have local data, upload local data to Supabase
+      if (remoteProducts.isEmpty && localProducts.isNotEmpty) {
+        print('ProductRepository: Remote is empty but local has data. Auto-migrating to Supabase...');
+        for (var product in localProducts) {
+          try {
+            // We create the product in Supabase. 
+            // Note: IDs might change if we let Supabase generate them, or we can try to preserve them if we enabled identity insert (complex).
+            // For simplicity, we let Supabase generate new IDs and we will update local cache later.
+            // Ideally we should check if it already exists by barcode or name to avoid duplicates if partial sync happened.
+            await remoteDataSource.createProduct(product);
+          } catch (e) {
+            print('ProductRepository: Failed to migrate product ${product.name}: $e');
+          }
+        }
+        // Fetch again after migration
+        remoteProducts = await remoteDataSource.getProducts();
+      }
+
       try {
         await localDataSource.cacheProducts(remoteProducts);
         // CRITICAL FIX: Return the products from the local DB, not the remote ones.

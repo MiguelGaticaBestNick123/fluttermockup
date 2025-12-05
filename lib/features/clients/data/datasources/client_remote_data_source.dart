@@ -1,6 +1,5 @@
-import 'package:dio/dio.dart';
 import '../../../../models/client.dart';
-import '../../../../services/api_service.dart';
+import '../../../../services/supabase_service.dart';
 
 abstract class ClientRemoteDataSource {
   Future<List<Client>> getClients();
@@ -10,35 +9,30 @@ abstract class ClientRemoteDataSource {
 }
 
 class ClientRemoteDataSourceImpl implements ClientRemoteDataSource {
-  final ApiService apiService;
+  final SupabaseService supabaseService;
 
-  ClientRemoteDataSourceImpl({required this.apiService});
+  ClientRemoteDataSourceImpl({required this.supabaseService});
 
   @override
   Future<List<Client>> getClients() async {
-    final response = await apiService.dio.get('/api/clients');
-    if (response.statusCode == 200) {
-      final List data = response.data;
-      return data.map((e) => Client.fromJson(e)).toList();
-    } else {
-      throw Exception('Failed to load clients from API');
-    }
+    final data = await supabaseService.getClients();
+    return data.map((e) => Client.fromJson(e)).toList();
   }
 
   @override
   Future<Client> createClient(Client client) async {
-    final response = await apiService.dio.post('/api/clients', data: client.toMap());
-    return Client.fromJson(response.data);
+    final data = await supabaseService.createClient(client.toMap());
+    return Client.fromJson(data);
   }
 
   @override
   Future<Client> updateClient(Client client) async {
-    final response = await apiService.dio.put('/api/clients/${client.id}', data: client.toMap());
-    return Client.fromJson(response.data);
+    final data = await supabaseService.updateClient(client.id!, client.toMap());
+    return Client.fromJson(data);
   }
 
   @override
   Future<void> deleteClient(int id) async {
-    await apiService.dio.delete('/api/clients/$id');
+    await supabaseService.deleteClient(id);
   }
 }

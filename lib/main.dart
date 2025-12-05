@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -38,9 +39,9 @@ import 'features/sync/presentation/bloc/sync_event.dart';
 import 'pages/about_page.dart';
 import 'pages/team_page.dart';
 import 'pages/home_page.dart';
-import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/export_service.dart';
+import 'services/supabase_service.dart';
 import 'core/presentation/bloc/theme_cubit.dart';
 
 import 'dart:io';
@@ -57,35 +58,41 @@ void main() async {
     await _secureScreen();
   }
 
-  final apiService = ApiService();
+  await Supabase.initialize(
+    url: 'https://rkoqwtcrbndovwpghfhj.supabase.co',
+    anonKey: 'sb_publishable_yNybsP6Q1yP4t7L5JlC8UQ_fYEV1lkS',
+  );
+
   final authService = AuthService();
   final dbHelper = DBHelper();
   final exportService = ExportService();
+  final supabaseService = SupabaseService(); // Instantiate SupabaseService
 
-  final authRemoteDataSource = AuthRemoteDataSourceImpl(apiService: apiService);
+  final authRemoteDataSource = AuthRemoteDataSourceImpl(supabaseService: supabaseService);
   final authRepository = AuthRepositoryImpl(
     remoteDataSource: authRemoteDataSource,
     localAuthService: authService,
+    supabaseService: supabaseService,
   );
 
-  final syncRepository = SyncRepositoryImpl(dbHelper: dbHelper, apiService: apiService);
+  final syncRepository = SyncRepositoryImpl(dbHelper: dbHelper, supabaseService: supabaseService);
 
   final productLocalDataSource = ProductLocalDataSourceImpl(dbHelper: dbHelper);
-  final productRemoteDataSource = ProductRemoteDataSourceImpl(apiService: apiService);
+  final productRemoteDataSource = ProductRemoteDataSourceImpl(supabaseService: supabaseService);
   final productRepository = ProductRepositoryImpl(
     remoteDataSource: productRemoteDataSource,
     localDataSource: productLocalDataSource,
   );
 
   final clientLocalDataSource = ClientLocalDataSourceImpl(dbHelper: dbHelper);
-  final clientRemoteDataSource = ClientRemoteDataSourceImpl(apiService: apiService);
+  final clientRemoteDataSource = ClientRemoteDataSourceImpl(supabaseService: supabaseService);
   final clientRepository = ClientRepositoryImpl(
     remoteDataSource: clientRemoteDataSource,
     localDataSource: clientLocalDataSource,
   );
 
   final saleLocalDataSource = SaleLocalDataSourceImpl(dbHelper: dbHelper);
-  final saleRemoteDataSource = SaleRemoteDataSourceImpl(apiService: apiService);
+  final saleRemoteDataSource = SaleRemoteDataSourceImpl(supabaseService: supabaseService);
   final saleRepository = SaleRepositoryImpl(
     remoteDataSource: saleRemoteDataSource,
     localDataSource: saleLocalDataSource,
