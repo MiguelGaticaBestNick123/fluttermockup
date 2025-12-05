@@ -5,11 +5,13 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../../models/sale.dart';
+import '../../../../models/client.dart';
 
 class SaleDetailPage extends StatelessWidget {
   final Sale sale;
+  final Client? client;
 
-  const SaleDetailPage({super.key, required this.sale});
+  const SaleDetailPage({super.key, required this.sale, this.client});
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +49,11 @@ class SaleDetailPage extends StatelessWidget {
               pw.SizedBox(height: 16),
               pw.Text('Venta ID: ${sale.id}'),
               pw.Text('Fecha: ${sale.date ?? "Desconocida"}'),
+              if (client != null) ...[
+                pw.SizedBox(height: 8),
+                pw.Text('Cliente: ${client!.name}'),
+                if (client!.email != null) pw.Text('Email: ${client!.email}'),
+              ],
               pw.SizedBox(height: 16),
               pw.Text('Productos:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
               pw.ListView.builder(

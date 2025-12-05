@@ -22,6 +22,13 @@ class SaleBloc extends Bloc<SaleEvent, SaleState> {
 
     if (index >= 0) {
       final existing = currentItems[index];
+      // Check stock limit
+      if (existing.quantity + 1 > event.product.stock) {
+        emit(state.copyWith(status: SaleStatus.failure, errorMessage: 'No hay suficiente stock para ${event.product.name}'));
+        emit(state.copyWith(status: SaleStatus.initial)); // Reset status
+        return;
+      }
+      
       currentItems[index] = SaleItem(
         productId: existing.productId,
         quantity: existing.quantity + 1,
@@ -29,6 +36,13 @@ class SaleBloc extends Bloc<SaleEvent, SaleState> {
         product: existing.product,
       );
     } else {
+      // Check stock limit for new item
+      if (1 > event.product.stock) {
+        emit(state.copyWith(status: SaleStatus.failure, errorMessage: 'Producto sin stock: ${event.product.name}'));
+        emit(state.copyWith(status: SaleStatus.initial));
+        return;
+      }
+
       currentItems.add(SaleItem(
         productId: event.product.id!,
         quantity: 1,
@@ -117,6 +131,15 @@ class SaleBloc extends Bloc<SaleEvent, SaleState> {
       } else {
          newQuantity = int.tryParse('$qStr${event.value}') ?? newQuantity;
       }
+    }
+
+    // Check stock limit
+    if (lastItem.product != null && newQuantity > lastItem.product!.stock) {
+      emit(state.copyWith(status: SaleStatus.failure, errorMessage: 'Stock insuficiente. Máximo: ${lastItem.product!.stock}'));
+      emit(state.copyWith(status: SaleStatus.initial));
+      // Revert to max stock or keep previous? Let's keep previous for now, or cap it.
+      // Better to just not update and warn.
+      return;
     }
 
     currentItems[lastIndex] = SaleItem(

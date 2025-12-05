@@ -13,13 +13,33 @@ class ProductRepositoryImpl implements ProductRepository {
   });
 
   @override
-  Future<List<Product>> getProducts() async {
+  Future<List<Product>> getProducts({bool forceUpdate = false}) async {
     try {
+      // 1. Get local products first
+      final localProducts = await localDataSource.getLastProducts();
+      
+      // 2. If we have local products and NOT forcing update, return them immediately (Offline-first)
+      if (!forceUpdate && localProducts.isNotEmpty) {
+        print('ProductRepository: Returning ${localProducts.length} local products');
+        return localProducts;
+      }
+
+      // 3. If local is empty or forcing update, fetch from remote
+      print('ProductRepository: Fetching from remote (forceUpdate: $forceUpdate)...');
       final remoteProducts = await remoteDataSource.getProducts();
-      await localDataSource.cacheProducts(remoteProducts);
-      return remoteProducts;
+      
+      try {
+        await localDataSource.cacheProducts(remoteProducts);
+        // CRITICAL FIX: Return the products from the local DB, not the remote ones.
+        return await localDataSource.getLastProducts();
+      } catch (dbError) {
+        print('ProductRepository: CRITICAL DB ERROR in cacheProducts: $dbError');
+        // Fallback: If caching fails (e.g. DB error), return remote products so the user sees something.
+        return remoteProducts;
+      }
     } catch (e) {
-      // If remote fails, try local
+      print('ProductRepository: Error fetching/caching products: $e');
+      // If remote fails and we have no local data, return empty or rethrow
       return await localDataSource.getLastProducts();
     }
   }
@@ -31,18 +51,13 @@ class ProductRepositoryImpl implements ProductRepository {
       await localDataSource.saveProduct(remoteProduct);
       return remoteProduct;
     } catch (e) {
-      // Offline creation logic (queueing) should be handled here or via SyncRepository
-      // For now, we'll just save locally and assume SyncService picks it up, 
-      // OR we can throw error if we want to force online creation for now.
-      // Given the requirement, let's try to save locally with synced=0 if we had that field.
-      // Product model doesn't have synced field yet. 
-      // Let's just throw for now or implement queueing properly.
-      // Since we implemented SyncQueue for Sales, we should use it here too.
-      // But ProductRepositoryImpl doesn't have SyncRepository injected yet.
-      // For this step, I will just throw to keep it simple and focus on UI, 
-      // or better, just save locally without sync flag (it will be lost on sync clear).
-      // Actually, let's just throw for now to ensure online-first.
-      rethrow;
+      print('ProductRepository: Error creating remote product: $e');
+      // Offline creation: Save locally
+      // Note: Since we don't have a sync queue for products yet, this product might be lost on app clear
+      // or if we overwrite with remote data. But for now, it allows the user to see the product.
+      // We should ideally assign a temporary ID or handle this in localDataSource.
+      await localDataSource.saveProduct(product);
+      return product;
     }
   }
 

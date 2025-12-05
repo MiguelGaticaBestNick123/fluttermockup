@@ -13,7 +13,7 @@ class DBHelper {
   DBHelper._internal();
 
   static const _dbName = 'stocklite.db';
-  static const _dbVersion = 2;
+  static const _dbVersion = 3;
 
   Database? _database;
 
@@ -26,7 +26,9 @@ class DBHelper {
 
   Future<Database> _initDatabase() async {
     final dir = await getApplicationDocumentsDirectory();
+
     final path = p.join(dir.path, _dbName);
+    print('DBHelper: Database path: $path');
 
     return await openDatabase(
       path,
@@ -64,6 +66,7 @@ class DBHelper {
       CREATE TABLE sales (
         id INTEGER PRIMARY KEY,
         client_id INTEGER,
+        user_id INTEGER,
         total REAL NOT NULL,
         date TEXT,
         synced INTEGER DEFAULT 0
@@ -96,6 +99,14 @@ class DBHelper {
       await db.execute('DROP TABLE IF EXISTS figures');
       await _onCreate(db, newVersion);
     }
+    if (oldVersion < 3) {
+      try {
+        await db.execute('ALTER TABLE sales ADD COLUMN user_id INTEGER');
+        print('DBHelper: Added user_id column to sales table');
+      } catch (e) {
+        print('DBHelper: Error adding user_id column: $e');
+      }
+    }
   }
 
   // CRUD Products
@@ -108,6 +119,9 @@ class DBHelper {
       batch.insert('products', p.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
+    
+    // After inserting remote products (which might be stale), re-apply local unsynced sales
+    await reapplyUnsyncedSales();
   }
 
   Future<List<Product>> getProducts() async {
@@ -197,10 +211,23 @@ class DBHelper {
           await txn.insert('sale_items', itemMap);
           
           // Update local stock
-          await txn.rawUpdate(
-            'UPDATE products SET stock = stock - ? WHERE id = ?',
-            [item.quantity, item.productId],
-          );
+          // First check if product exists to debug
+          final productExists = await txn.query('products', where: 'id = ?', whereArgs: [item.productId]);
+          if (productExists.isEmpty) {
+            print('DBHelper: WARNING - Product ${item.productId} not found in local DB during sale!');
+          } else {
+            int count = await txn.rawUpdate(
+              'UPDATE products SET stock = stock - ? WHERE id = ?',
+              [item.quantity, item.productId],
+            );
+            print('DBHelper: Updated stock for product ${item.productId}, quantity ${item.quantity}. Rows affected: $count');
+            
+            // VERIFICATION: Read back the stock immediately
+            final updatedProduct = await txn.query('products', columns: ['stock'], where: 'id = ?', whereArgs: [item.productId]);
+            if (updatedProduct.isNotEmpty) {
+               print('DBHelper: VERIFICATION - New stock for product ${item.productId} is ${updatedProduct.first['stock']}');
+            }
+          }
         }
         return saleId;
       });
@@ -277,5 +304,42 @@ class DBHelper {
     final db = await database;
     if (db == null) return;
     await db.delete('sync_queue', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Re-apply unsynced sales stock deductions
+  // This is critical when we fetch stale products from remote that don't yet have our local sales applied.
+  Future<void> reapplyUnsyncedSales() async {
+    if (kIsWeb) return;
+    final db = await database;
+    if (db == null) return;
+
+    print('DBHelper: Re-applying unsynced sales stock deductions...');
+    
+    // Get all unsynced sales
+    final unsyncedSales = await db.query('sales', where: 'synced = 0');
+    if (unsyncedSales.isEmpty) {
+      print('DBHelper: No unsynced sales found.');
+      return;
+    }
+
+    await db.transaction((txn) async {
+      for (var saleMap in unsyncedSales) {
+        final saleId = saleMap['id'] as int;
+        final items = await txn.query('sale_items', where: 'sale_id = ?', whereArgs: [saleId]);
+        
+        for (var item in items) {
+          final productId = item['product_id'] as int;
+          final quantity = item['quantity'] as int;
+          
+          // Deduct stock again (because we just overwrote it with stale remote data)
+          int count = await txn.rawUpdate(
+            'UPDATE products SET stock = stock - ? WHERE id = ?',
+            [quantity, productId],
+          );
+          print('DBHelper: Re-applied deduction for product $productId, quantity $quantity. Rows affected: $count');
+        }
+      }
+    });
+    print('DBHelper: Finished re-applying unsynced sales.');
   }
 }

@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../../../../models/client.dart';
 import '../../data/datasources/client_local_data_source.dart';
 import '../../data/datasources/client_remote_data_source.dart';
@@ -19,6 +20,9 @@ class ClientRepositoryImpl implements ClientRepository {
       await localDataSource.cacheClients(remoteClients);
       return remoteClients;
     } catch (e) {
+      if (e is DioException && e.response?.statusCode == 401) {
+        rethrow;
+      }
       return await localDataSource.getLastClients();
     }
   }

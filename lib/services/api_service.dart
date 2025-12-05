@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'auth_service.dart';
 
@@ -10,7 +10,12 @@ class ApiService {
     if (kIsWeb) {
       return 'http://localhost:5000';
     }
-    return 'http://10.0.2.2:5000';
+    // For Android Emulator, use 10.0.2.2
+    // For iOS Simulator and Desktop (Windows/Mac/Linux), use localhost
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:5000';
+    }
+    return 'http://localhost:5000';
   }
 
   ApiService() {

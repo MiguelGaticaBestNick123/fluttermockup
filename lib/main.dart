@@ -43,9 +43,17 @@ import 'services/auth_service.dart';
 import 'services/export_service.dart';
 import 'core/presentation/bloc/theme_cubit.dart';
 
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (!kIsWeb) {
+  
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    // Initialize FFI
+    sqfliteFfiInit();
+    // Change the default factory
+    databaseFactory = databaseFactoryFfi;
     await _secureScreen();
   }
 
@@ -153,15 +161,39 @@ class MyApp extends StatelessWidget {
           builder: (context, themeMode) {
             return MaterialApp(
               title: 'StockLite POS',
+              debugShowCheckedModeBanner: false,
               theme: ThemeData(
-                primarySwatch: Colors.indigo,
                 useMaterial3: true,
                 brightness: Brightness.light,
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: Colors.indigo,
+                  brightness: Brightness.light,
+                ),
+                scaffoldBackgroundColor: Colors.grey[50],
+                cardColor: Colors.white,
+                appBarTheme: const AppBarTheme(
+                  centerTitle: true,
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.black,
+                ),
               ),
               darkTheme: ThemeData(
-                primarySwatch: Colors.indigo,
                 useMaterial3: true,
                 brightness: Brightness.dark,
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: Colors.indigo,
+                  brightness: Brightness.dark,
+                  surface: const Color(0xFF1E1E1E),
+                ),
+                scaffoldBackgroundColor: const Color(0xFF121212),
+                cardColor: const Color(0xFF1E1E1E),
+                appBarTheme: const AppBarTheme(
+                  centerTitle: true,
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                ),
               ),
               themeMode: themeMode,
               initialRoute: '/',

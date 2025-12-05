@@ -13,11 +13,20 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   @override
   Future<String> login(String username, String password) async {
-    final response = await apiService.login(username, password);
-    if (response.statusCode == 200) {
-      return response.data['access_token'];
-    } else {
-      throw Exception('Login failed');
+    try {
+      final response = await apiService.login(username, password);
+      if (response.statusCode == 200) {
+        return response.data['access_token'];
+      } else {
+        throw Exception('Login failed');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw Exception('Usuario o contraseña incorrectos');
+      }
+      throw Exception('Error de conexión: ${e.message}');
+    } catch (e) {
+      throw Exception('Error inesperado: $e');
     }
   }
 
