@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SupabaseService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  // --- AUTH ---
+  // --- AUTH (Login y eso) ---
 
   Future<AuthResponse> signIn(String email, String password) async {
     return await _client.auth.signInWithPassword(
@@ -19,8 +19,8 @@ class SupabaseService {
       data: {'username': username, 'role': 'operator'}, // Default role
     );
     
-    // Note: Trigger in DB should handle profile creation, or we do it manually here if needed.
-    // For now, we rely on the metadata or a trigger.
+    // Nota: El trigger en la DB debería crear el perfil, o lo hacemos a mano.
+    // Por ahora confiamos en la magia del backend :v
     return response;
   }
 
@@ -30,7 +30,7 @@ class SupabaseService {
 
   User? get currentUser => _client.auth.currentUser;
 
-  // --- PRODUCTS ---
+  // --- PRODUCTOS (La mercadería) ---
 
   Future<List<Map<String, dynamic>>> getProducts() async {
     final response = await _client
@@ -74,9 +74,23 @@ class SupabaseService {
   }
 
   Future<Map<String, dynamic>> createClient(Map<String, dynamic> clientData) async {
+    // Fix para el error de clave duplicada: calculamos el ID a mano
+    // Porque Postgres a veces se pone rebelde con los serials xD
+    final clients = await getClients();
+    int maxId = 0;
+    if (clients.isNotEmpty) {
+      // Buscamos el ID más alto
+      for (var c in clients) {
+        if (c['id'] > maxId) maxId = c['id'];
+      }
+    }
+    
+    final newClientData = Map<String, dynamic>.from(clientData);
+    newClientData['id'] = maxId + 1;
+
     final response = await _client
         .from('clients')
-        .insert(clientData)
+        .insert(newClientData)
         .select()
         .single();
     return response;
@@ -96,12 +110,12 @@ class SupabaseService {
     await _client.from('clients').delete().eq('id', id);
   }
 
-  // --- SALES ---
+  // --- VENTAS (¡A facturar!) ---
 
   Future<Map<String, dynamic>> createSale(int clientId, List<Map<String, dynamic>> items, double total) async {
     final userId = _client.auth.currentUser!.id;
 
-    // 1. Create Sale Header
+    // 1. Crear Cabecera de Venta
     final saleResponse = await _client
         .from('sales')
         .insert({
@@ -114,7 +128,7 @@ class SupabaseService {
 
     final saleId = saleResponse['id'];
 
-    // 2. Create Sale Items
+    // 2. Crear Items de Venta
     final saleItems = items.map((item) {
       return {
         'sale_id': saleId,
@@ -126,7 +140,7 @@ class SupabaseService {
 
     final insertedItems = await _client.from('sale_items').insert(saleItems).select();
 
-    // 3. Update Stock
+    // 3. Actualizar Stock (Restamos lo que se llevaron)
     for (var item in items) {
       final productId = item['product_id'];
       final quantity = item['quantity'];
@@ -137,7 +151,7 @@ class SupabaseService {
       await _client.from('products').update({'stock': currentStock - quantity}).eq('id', productId);
     }
 
-    // Return complete sale object
+    // Retornar la venta completa
     final completeSale = Map<String, dynamic>.from(saleResponse);
     completeSale['items'] = insertedItems;
     return completeSale;

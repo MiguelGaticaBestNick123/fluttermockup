@@ -20,7 +20,7 @@ class ProductLocalDataSourceImpl implements ProductLocalDataSource {
 
   @override
   Future<void> cacheProducts(List<Product> products) async {
-    await dbHelper.clearProducts();
+    // await dbHelper.clearProducts(); // No borramos para no perder lo que no se ha sincronizado :v
     await dbHelper.insertProducts(products);
   }
 

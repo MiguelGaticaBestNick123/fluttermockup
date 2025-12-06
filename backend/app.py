@@ -10,10 +10,11 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from dotenv import load_dotenv
 
-# Cargar variables de entorno
+# Cargar variables de entorno (si no, no funciona nada jaja)
 load_dotenv()
 
-# ------------------ CONFIG ------------------
+# ------------------ CONFIGURACIÓN ------------------
+# Aquí configuramos Flask y la base de datos, todo chill 8)
 app = Flask(__name__)
 CORS(app)
 
@@ -27,7 +28,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
-# ------------------ MODELOS ------------------
+# ------------------ MODELOS DE LA DB ------------------
+# Definimos las tablas, ojalá no cambien mucho los requerimientos :p
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -112,7 +114,7 @@ class SaleItem(db.Model):
             "price": self.price
         }
 
-# inicializar DB y crear usuario admin si no existe
+# inicializar DB y crear usuario admin si no existe (para no quedarnos fuera :v)
 with app.app_context():
     db.create_all()
     if not User.query.filter_by(username="admin").first():
@@ -122,7 +124,8 @@ with app.app_context():
         db.session.commit()
         print("Admin user created: admin/secret")
 
-# ------------------ ROUTES ------------------
+# ------------------ RUTAS / ENDPOINTS ------------------
+# Aquí empieza la magia de la API
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -160,7 +163,7 @@ def register():
 
     return jsonify({"msg": "User created successfully"}), 201
 
-# --- Productos ---
+# --- Productos (Lo que vendemos) ---
 @app.route("/api/products", methods=["GET"])
 @jwt_required()
 def list_products():
@@ -179,7 +182,8 @@ def create_product():
     if not name:
         return jsonify({"error": "Name is required"}), 400
 
-    # Opcional manejo de imagen
+    # Manejo de imagen, si viene en base64 la guardamos
+    # espero que no manden archivos muy pesados...
     img_b64 = data.get("image_base64")
     filename = data.get("image_filename")
     safe_name = None
@@ -195,7 +199,7 @@ def create_product():
             with open(path, "wb") as f:
                 f.write(raw)
         except Exception:
-            pass # Ignorar errores de imagen por ahora
+            pass # Si falla la imagen, pues ni modo, se queda sin foto :v
 
     prod = Product(
         name=name,
@@ -243,7 +247,7 @@ def delete_product(id):
     db.session.commit()
     return jsonify({"msg": "Product deleted"}), 200
 
-# --- CLIENTES ---
+# --- CLIENTES (Los que pagan) ---
 @app.route("/api/clients", methods=["GET"])
 @jwt_required()
 def list_clients():
@@ -258,7 +262,11 @@ def create_client():
     if not name:
         return jsonify({"error": "Name is required"}), 400
     
-    client = Client(name=name, email=data.get("email"), phone=data.get("phone"))
+    # Fix para el error de clave duplicada: calculamos el ID a mano
+    # Porque a veces la secuencia de la DB se marea xD
+    max_id = db.session.query(db.func.max(Client.id)).scalar() or 0
+    client = Client(id=max_id + 1, name=name, email=data.get("email"), phone=data.get("phone"))
+    
     db.session.add(client)
     db.session.commit()
     return jsonify(client.to_dict()), 201
@@ -292,7 +300,7 @@ def delete_client(id):
     db.session.commit()
     return jsonify({"msg": "Client deleted"}), 200
 
-# --- Ventas ---
+# --- Ventas (Money money money) ---
 @app.route("/api/sales", methods=["POST"])
 @jwt_required()
 def create_sale():
@@ -309,7 +317,7 @@ def create_sale():
     total = 0.0
     sale = Sale(user_id=user.id, client_id=client_id, total=0)
     db.session.add(sale)
-    db.session.flush() # Obtener el ID de la venta recién insertada
+    db.session.flush() # Necesitamos el ID de la venta YA, así que flush :p
 
     for item in items_data:
         product = Product.query.get(item["product_id"])
@@ -323,7 +331,7 @@ def create_sale():
         sale_item = SaleItem(sale_id=sale.id, product_id=product.id, quantity=qty, price=price)
         db.session.add(sale_item)
         
-        # Actualizar stock
+        # Actualizar stock (restamos lo que se vendió)
         product.stock -= qty
 
     sale.total = total

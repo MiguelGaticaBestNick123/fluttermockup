@@ -1,16 +1,16 @@
-# prueba
+# StockLite - Sistema de Gestión de Inventario
 
-A new Flutter project.
+¡Hola! Bienvenido a StockLite. Este es un sistema simple pero poderoso para manejar tus productos, clientes y ventas.
 
-## Getting Started
+## Cómo empezar
+1. Asegúrate de tener Python y Flutter instalados.
+2. Corre el backend: `python backend/app.py`
+3. Corre la app: `flutter run`
 
-This project is a starting point for a Flutter application.
+## Características
+- Gestión de productos (con fotos y todo :v)
+- Clientes (para saber a quién cobrarle)
+- Ventas (¡a hacer dinero!)
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Nota
+Si ves errores raros, reinicia el server. A veces pasa 8)
